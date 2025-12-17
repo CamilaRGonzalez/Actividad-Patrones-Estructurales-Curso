@@ -4,34 +4,19 @@ import java.util.List;
 
 public class Main {
     public static void main(String[] args) {
-        // 1. Problema de Adapter: Mezcla de interfaces
-        List<Object> devices = new ArrayList<>();
-        devices.add(new ModernLight());
-        devices.add(new OldVintageLamp()); // Ups, esto no es un ISmartDevice
+        //Todos los elementos de la lista son ISmartDevices
+        List<ISmartDevice> devices = new ArrayList<>();
+        devices.add(new LampDecorator(new ModernLight())); //se envuelve a ModernLight en un decorador que agregue los logs en encendido y apagado
+        devices.add(new VintageLampAdapter(new OldVintageLamp())); //No se agrega la lampara vintage, se agrega la interfaz del adaptador
 
-        System.out.println("--- Encendiendo todo (Código Sucio) ---");
-        for (Object device : devices) {
-            if (device instanceof ISmartDevice) {
-                ((ISmartDevice) device).turnOn();
-            } else if (device instanceof OldVintageLamp) {
-                // Violación: El cliente tiene que saber los detalles de la clase vieja
-                ((OldVintageLamp) device).ignite();
-            }
-        }
+        devices.forEach(ISmartDevice::turnOn); //se pueden prender todos de la misma manera al ser interfaces ISmartDevice
 
-        // 2. Problema de Facade: El cliente hace micro-management
-        System.out.println("\n--- Preparando Modo Cine (Muy complejo) ---");
-        ModernLight light = new ModernLight();
-        SmartTV tv = new SmartTV();
-        AudioSystem audio = new AudioSystem();
+        System.out.println("\n");
+        devices.forEach(ISmartDevice::turnOff);
 
-        light.turnOff(); // Apagar luz
-        tv.turnOn();
-        tv.setChannel(101); // Netflix
-        audio.turnOn();
-        audio.setVolume(50);
-
-        System.out.println("¡Disfruta la película!");
+        // Se prepara modo cine invocando 1 solo método del objeto fachada, el cual realiza todas las acciones necesarias
+        ModoCineFacade modoCineFacade = new ModoCineFacade(new ModernLight(),new SmartTV(), new AudioSystem());
+        modoCineFacade.prepararModoCine();
     }
 }
 
@@ -45,8 +30,6 @@ interface ISmartDevice {
 class ModernLight implements ISmartDevice {
     @Override
     public void turnOn() {
-        // Problema: Responsabilidad mezclada (Logging + Lógica) -> Candidato a Decorator
-        System.out.println("LOG: Registrando evento de encendido...");
         System.out.println("Luz moderna: Encendida e iluminando.");
     }
 
@@ -68,6 +51,7 @@ class OldVintageLamp {
     }
 }
 
+
 // --- Otros Dispositivos ---
 class SmartTV implements ISmartDevice {
     public void turnOn() { System.out.println("TV: Encendida."); }
@@ -81,5 +65,70 @@ class AudioSystem implements ISmartDevice {
     public void setVolume(int vol) { System.out.println("Audio: Volumen al " + vol + "%"); }
 }
 
+class VintageLampAdapter implements ISmartDevice{
+    private final OldVintageLamp oldVintageLamp;
+
+    public VintageLampAdapter(OldVintageLamp oldVintageLamp){
+        this.oldVintageLamp = oldVintageLamp;
+    }
+
+    @Override
+    public void turnOn() {
+        oldVintageLamp.ignite();
+    }
+
+    @Override
+    public void turnOff() {
+        oldVintageLamp.extinguish();
+    }
+}
+
+class ModoCineFacade{
+    private final ModernLight light;
+    private final SmartTV tv;
+    private final AudioSystem audio;
+
+    public ModoCineFacade(ModernLight modernLight, SmartTV smartTV, AudioSystem audioSystem){
+        this.light = modernLight;
+        this.audio = audioSystem;
+        this.tv = smartTV;
+    }
+
+    public void prepararModoCine(){
+        System.out.println("\nPreparando modo cine...");
+        light.turnOff(); // Apagar luz
+        tv.turnOn();
+        tv.setChannel(101); // Netflix
+        audio.turnOn();
+        audio.setVolume(50);
+        System.out.println("¡Disfruta la película!");
+    }
+}
+
+abstract class DeviceDecorator implements ISmartDevice {
+    protected ISmartDevice wrappedDevice;
+
+    public DeviceDecorator(ISmartDevice device) {
+        this.wrappedDevice = device;
+    }
+}
+
+class LampDecorator extends DeviceDecorator{
+    public LampDecorator(ISmartDevice device) {
+        super(device);
+    }
+
+    @Override
+    public void turnOn() {
+        System.out.println("LOG: Registrando evento de encendido...");
+        this.wrappedDevice.turnOn();
+    }
+
+    @Override
+    public void turnOff() {
+        System.out.println("LOG: Registrando evento de apagado...");
+        this.wrappedDevice.turnOff();
+    }
+}
 
 
